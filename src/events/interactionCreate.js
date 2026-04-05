@@ -16,35 +16,10 @@ module.exports = {
         console.log("Is SelectMenu:", interaction.isStringSelectMenu?.());
         console.log("CustomId:", interaction.customId);
 
-        // 1️⃣ PACK AUSWAHL → ZAHLUNGSMETHODEN-MODAL ÖFFNEN
+        // 1️⃣ PACK AUSWAHL → BUTTONS SENDEN
         if (interaction.isStringSelectMenu()) {
             if (interaction.customId === "pack_select") {
 
-                const modal = new ModalBuilder()
-                    .setCustomId("payment_modal")
-                    .setTitle("Zahlungsmethode wählen");
-
-                const method = new TextInputBuilder()
-                    .setCustomId("method")
-                    .setLabel("Zahlungsmethode (paypal / paysafecard)")
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(method)
-                );
-
-                return interaction.showModal(modal);
-            }
-        }
-
-        // 2️⃣ ZAHLUNGSMODAL → BUTTONS SENDEN
-        if (interaction.isModalSubmit()) {
-            if (interaction.customId === "payment_modal") {
-
-                const method = interaction.fields.getTextInputValue("method").toLowerCase();
-
-                // Buttons für PayPal & PSC
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setCustomId("choose_paypal")
@@ -58,14 +33,14 @@ module.exports = {
                 );
 
                 return interaction.reply({
-                    content: `Du hast **${method}** eingegeben. Bitte wähle jetzt die Zahlungsmethode aus:`,
+                    content: `Bitte wähle deine Zahlungsmethode aus:`,
                     components: [row],
                     ephemeral: true
                 });
             }
         }
 
-        // 3️⃣ BUTTON → PAYPAL-MODAL
+        // 2️⃣ BUTTON → PAYPAL-MODAL
         if (interaction.isButton()) {
 
             if (interaction.customId === "choose_paypal") {
@@ -88,7 +63,7 @@ module.exports = {
                 return interaction.showModal(paypalModal);
             }
 
-            // 4️⃣ BUTTON → PSC-MODAL
+            // 3️⃣ BUTTON → PSC-MODAL
             if (interaction.customId === "choose_psc") {
 
                 const pscModal = new ModalBuilder()
@@ -109,7 +84,7 @@ module.exports = {
             }
         }
 
-        // 5️⃣ PAYPAL ODER PSC → TICKET ERSTELLEN
+        // 4️⃣ PAYPAL ODER PSC → TICKET ERSTELLEN
         if (interaction.isModalSubmit()) {
 
             if (interaction.customId === "paypal_modal" || interaction.customId === "psc_modal") {
