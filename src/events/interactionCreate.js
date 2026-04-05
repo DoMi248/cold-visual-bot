@@ -2,12 +2,19 @@ const {
     ActionRowBuilder,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
+    TextInputStyle,
+    ButtonBuilder,
+    ButtonStyle
 } = require("discord.js");
 
 module.exports = {
     name: "interactionCreate",
     async execute(interaction, client) {
+
+        // DEBUG
+        console.log("Interaction type:", interaction.type);
+        console.log("Is SelectMenu:", interaction.isStringSelectMenu?.());
+        console.log("CustomId:", interaction.customId);
 
         // 1️⃣ PACK AUSWAHL → ZAHLUNGSMETHODEN-MODAL ÖFFNEN
         if (interaction.isStringSelectMenu()) {
@@ -31,62 +38,80 @@ module.exports = {
             }
         }
 
-        // 2️⃣ ZAHLUNGSMETHODE AUS MODAL AUSWERTEN
+        // 2️⃣ ZAHLUNGSMODAL → BUTTONS SENDEN
         if (interaction.isModalSubmit()) {
-
-            // PAYPAL ODER PSC?
             if (interaction.customId === "payment_modal") {
 
                 const method = interaction.fields.getTextInputValue("method").toLowerCase();
 
-                // PAYPAL → PAYPAL-MODAL ÖFFNEN
-                if (method === "paypal") {
+                // Buttons für PayPal & PSC
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId("choose_paypal")
+                        .setLabel("PayPal")
+                        .setStyle(ButtonStyle.Primary),
 
-                    const paypalModal = new ModalBuilder()
-                        .setCustomId("paypal_modal")
-                        .setTitle("PayPal Zahlung");
-
-                    const info = new TextInputBuilder()
-                        .setCustomId("paypal_info")
-                        .setLabel("Unsere PayPal E-Mail")
-                        .setStyle(TextInputStyle.Short)
-                        .setValue("DEINE-PAYPAL-EMAIL")
-                        .setRequired(false);
-
-                    paypalModal.addComponents(
-                        new ActionRowBuilder().addComponents(info)
-                    );
-
-                    return interaction.showModal(paypalModal);
-                }
-
-                // PSC → PSC-MODAL ÖFFNEN
-                if (method === "paysafecard") {
-
-                    const pscModal = new ModalBuilder()
-                        .setCustomId("psc_modal")
-                        .setTitle("Paysafecard Zahlung");
-
-                    const code = new TextInputBuilder()
-                        .setCustomId("psc_code")
-                        .setLabel("PSC Code eingeben")
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(true);
-
-                    pscModal.addComponents(
-                        new ActionRowBuilder().addComponents(code)
-                    );
-
-                    return interaction.showModal(pscModal);
-                }
+                    new ButtonBuilder()
+                        .setCustomId("choose_psc")
+                        .setLabel("Paysafecard")
+                        .setStyle(ButtonStyle.Secondary)
+                );
 
                 return interaction.reply({
-                    content: "Ungültige Zahlungsmethode. Bitte gib **paypal** oder **paysafecard** ein.",
+                    content: `Du hast **${method}** eingegeben. Bitte wähle jetzt die Zahlungsmethode aus:`,
+                    components: [row],
                     ephemeral: true
                 });
             }
+        }
 
-            // 3️⃣ PAYPAL ODER PSC → TICKET ERSTELLEN
+        // 3️⃣ BUTTON → PAYPAL-MODAL
+        if (interaction.isButton()) {
+
+            if (interaction.customId === "choose_paypal") {
+
+                const paypalModal = new ModalBuilder()
+                    .setCustomId("paypal_modal")
+                    .setTitle("PayPal Zahlung");
+
+                const info = new TextInputBuilder()
+                    .setCustomId("paypal_info")
+                    .setLabel("Unsere PayPal E-Mail")
+                    .setStyle(TextInputStyle.Short)
+                    .setValue("DEINE-PAYPAL-EMAIL")
+                    .setRequired(false);
+
+                paypalModal.addComponents(
+                    new ActionRowBuilder().addComponents(info)
+                );
+
+                return interaction.showModal(paypalModal);
+            }
+
+            // 4️⃣ BUTTON → PSC-MODAL
+            if (interaction.customId === "choose_psc") {
+
+                const pscModal = new ModalBuilder()
+                    .setCustomId("psc_modal")
+                    .setTitle("Paysafecard Zahlung");
+
+                const code = new TextInputBuilder()
+                    .setCustomId("psc_code")
+                    .setLabel("PSC Code eingeben")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                pscModal.addComponents(
+                    new ActionRowBuilder().addComponents(code)
+                );
+
+                return interaction.showModal(pscModal);
+            }
+        }
+
+        // 5️⃣ PAYPAL ODER PSC → TICKET ERSTELLEN
+        if (interaction.isModalSubmit()) {
+
             if (interaction.customId === "paypal_modal" || interaction.customId === "psc_modal") {
 
                 const guild = interaction.guild;
