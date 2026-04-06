@@ -1,13 +1,21 @@
-// ticketEmbed.js
+const { EmbedBuilder } = require("discord.js");
 
-const { MessageEmbed } = require('discord.js');
+const ticketEmbed = (userName, userId, paymentInfo, paymentMethod) => {
+    const status = paymentMethod === "paysafe" ? "Paysafe Code eingereicht" : "PayPal ueberwiesen";
 
-const ticketEmbed = (userName, amount, status) => {
-    return new MessageEmbed()
-        .setColor(status === 'verified' ? '#00FF00' : '#FF0000')
-        .setTitle('Payment Verification Status')
-        .setDescription(`User: ${userName}\nAmount: $${amount}\nStatus: ${status}`)
-        .setFooter('Please contact support if you have any questions.');
+    return new EmbedBuilder()
+        .setTitle("Zahlungs-Ticket")
+        .setDescription("Ein neues Zahlungs-Ticket wurde erstellt.")
+        .addFields(
+            { name: "Benutzer", value: `${userName} (ID: ${userId})`, inline: false },
+            { name: "Zahlungsmethode", value: paymentMethod === "paysafe" ? "Paysafe" : "PayPal", inline: true },
+            { name: "Status", value: status, inline: true },
+            { name: "Zahlungsinformation", value: paymentMethod === "paysafe" ? "Code: `" + paymentInfo + "`" : "PayPal", inline: false },
+            { name: "Nachricht", value: "Wir ueberpruefen die Zahlung und melden uns schnellstmoeglich bei Ihnen!", inline: false }
+        )
+        .setColor("#2b2d31")
+        .setTimestamp()
+        .setFooter({ text: "Zahlungs-System" });
 };
 
 module.exports = ticketEmbed;
