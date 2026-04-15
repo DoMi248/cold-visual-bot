@@ -242,8 +242,8 @@ module.exports = {
                     await guild.channels.fetch();
                     const existingTicket = guild.channels.cache.find(
                         (channel) =>
-                            channel.type === ChannelType.GuildText &&
-                            channel.topic === `${TICKET_OWNER_TOPIC_PREFIX}${interaction.user.id}` &&
+                            isTicketChannel(channel) &&
+                            getTicketOwnerId(channel) === interaction.user.id &&
                             channel.name.startsWith("ticket-")
                     );
 
