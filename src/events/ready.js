@@ -10,8 +10,11 @@ module.exports = {
         const channel = client.channels.cache.get(CHANNEL_IDS.PRICELIST);
         if (!channel) return console.log("Pricelist-Channel nicht gefunden oder nicht gesetzt.");
 
-        await sendPricelistMessage(channel);
-
-        console.log("Nachricht mit Dropdown wurde gesendet.");
+        try {
+            await sendPricelistMessage(channel);
+            console.log("Nachricht mit Dropdown wurde gesendet.");
+        } catch (error) {
+            console.error("Pricelist-Nachricht konnte nicht gesendet werden:", error);
+        }
     }
 };
