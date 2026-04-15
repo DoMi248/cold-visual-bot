@@ -12,6 +12,7 @@ const {
 const ticketEmbed = require("../components/embeds/ticketEmbed");
 
 const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
+const MAX_TICKET_NAME_LENGTH = 80;
 
 const createTicketManagementRow = () =>
     new ActionRowBuilder().addComponents(
@@ -39,7 +40,9 @@ const sanitizeTicketNameSegment = (value) =>
         .replace(/[^a-z0-9-]/g, "-")
         .replace(/-+/g, "-")
         .replace(/^-|-$/g, "")
-        .slice(0, 80) || "ticket";
+        .slice(0, MAX_TICKET_NAME_LENGTH) || "ticket";
+
+const getTicketBaseName = (channelName) => sanitizeTicketNameSegment((channelName || "ticket").replace(/^ticket-|^closed-/, ""));
 
 const getTicketOwnerId = (channel) => {
     if (!channel?.topic?.startsWith(TICKET_OWNER_TOPIC_PREFIX)) return null;
@@ -48,7 +51,7 @@ const getTicketOwnerId = (channel) => {
 
 const isTicketChannel = (channel) => {
     if (!channel || channel.type !== ChannelType.GuildText) return false;
-    return channel.topic?.startsWith(TICKET_OWNER_TOPIC_PREFIX) || channel.name.startsWith("ticket-") || channel.name.startsWith("closed-");
+    return channel.topic?.startsWith(TICKET_OWNER_TOPIC_PREFIX);
 };
 
 const userIsTicketAdmin = (interaction) =>
@@ -145,7 +148,7 @@ module.exports = {
                         .setStyle(TextInputStyle.Short)
                         .setPlaceholder("z. B. kunde-max-mustermann")
                         .setRequired(true)
-                        .setMaxLength(80);
+                        .setMaxLength(MAX_TICKET_NAME_LENGTH);
 
                     modal.addComponents(new ActionRowBuilder().addComponents(newNameInput));
                     return interaction.showModal(modal);
@@ -163,7 +166,7 @@ module.exports = {
                         });
                     }
 
-                    const baseName = sanitizeTicketNameSegment((interaction.channel.name || "ticket").replace(/^ticket-|^closed-/, ""));
+                    const baseName = getTicketBaseName(interaction.channel.name);
                     await interaction.channel.setName(`closed-${baseName}`);
 
                     await interaction.reply({
@@ -190,7 +193,7 @@ module.exports = {
                         });
                     }
 
-                    const baseName = sanitizeTicketNameSegment((interaction.channel.name || "ticket").replace(/^ticket-|^closed-/, ""));
+                    const baseName = getTicketBaseName(interaction.channel.name);
                     await interaction.channel.setName(`ticket-${baseName}`);
 
                     await interaction.reply({
@@ -209,15 +212,11 @@ module.exports = {
                     if (!(await ensureTicketAdmin(interaction))) return;
 
                     await interaction.reply({
-                        content: "Ticket wird in 5 Sekunden gelöscht…",
+                        content: "Ticket wird gelöscht…",
                         ephemeral: true
                     });
 
-                    setTimeout(() => {
-                        interaction.channel
-                            .delete("Ticket wurde von einem Admin gelöscht")
-                            .catch(() => null);
-                    }, 5000);
+                    await interaction.channel.delete("Ticket wurde von einem Admin gelöscht");
                     return;
                 }
             }
@@ -240,6 +239,7 @@ module.exports = {
 
                 if (interaction.customId === "paypal_modal" || interaction.customId === "psc_modal") {
                     const guild = interaction.guild;
+                    await guild.channels.fetch();
                     const existingTicket = guild.channels.cache.find(
                         (channel) =>
                             channel.type === ChannelType.GuildText &&
