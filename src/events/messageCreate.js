@@ -19,8 +19,9 @@ module.exports = {
             return message.reply("Du hast keine Berechtigung für diesen Befehl.");
         }
 
-        const configuredChannel = CHANNEL_IDS.PRICELIST
-            ? message.guild.channels.cache.get(CHANNEL_IDS.PRICELIST)
+        const configuredChannelId = CHANNEL_IDS.PRICELIST?.trim();
+        const configuredChannel = configuredChannelId
+            ? message.guild.channels.cache.get(configuredChannelId)
             : null;
         const targetChannel = configuredChannel || message.channel;
 
