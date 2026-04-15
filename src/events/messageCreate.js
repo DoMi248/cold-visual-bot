@@ -26,7 +26,7 @@ module.exports = {
 
         try {
             await sendPricelistMessage(targetChannel);
-            await message.reply(`Pricelist wurde in ${targetChannel} gesendet.`);
+            await message.reply(`Pricelist wurde in <#${targetChannel.id}> gesendet.`);
         } catch (error) {
             console.error("Fehler beim Senden der Pricelist:", error);
             await message.reply("Die Pricelist konnte nicht gesendet werden.");
