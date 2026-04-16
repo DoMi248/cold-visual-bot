@@ -11,43 +11,15 @@ const {
 } = require("discord.js");
 const ticketEmbed = require("../components/embeds/ticketEmbed");
 const { PAYPAL_URL, DEFAULT_PAYPAL_URL } = require("../config");
+const { findProductById } = require("../utils/productStore");
+const { addPaysafeEntry } = require("../utils/paysafeStore");
 
 const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
 const MAX_TICKET_NAME_LENGTH = 80;
-const isHttpUrl = (value) => {
-    try {
-        const parsed = new URL(value);
-        return parsed.protocol === "http:" || parsed.protocol === "https:";
-    } catch {
-        return false;
-    }
-};
-
-const SAFE_PAYPAL_URL = (() => {
-    if (isHttpUrl(PAYPAL_URL)) return PAYPAL_URL;
-    console.warn(`PAYPAL_URL is invalid or empty. Using fallback: ${DEFAULT_PAYPAL_URL}`);
-    return DEFAULT_PAYPAL_URL;
-})();
-
-const createTicketManagementRow = () =>
-    new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId("ticket_close")
-            .setLabel("Ticket schließen")
-            .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-            .setCustomId("ticket_rename")
-            .setLabel("Ticket umbenennen")
-            .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-            .setCustomId("ticket_reopen")
-            .setLabel("Ticket wieder öffnen")
-            .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-            .setCustomId("ticket_delete")
-            .setLabel("Ticket löschen")
-            .setStyle(ButtonStyle.Danger)
-    );
+const CHOOSE_PSC_PREFIX = "choose_psc:";
+const PSC_MODAL_PREFIX = "psc_modal:";
+const PSC_MAX_INPUT_LENGTH = 19;
+const PAYSAFE_CODE_REGEX = /^\d{4}([ -]?\d{4}){3}$/;
 
 const sanitizeTicketNameSegment = (value) =>
     (value || "ticket")
@@ -95,41 +67,111 @@ const ensureTicketAdmin = async (interaction) => {
     return true;
 };
 
+const isHttpUrl = (value) => {
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+        return false;
+    }
+};
+
+const SAFE_PAYPAL_URL = (() => {
+    if (isHttpUrl(PAYPAL_URL)) return PAYPAL_URL;
+    console.warn(`PAYPAL_URL is invalid or empty. Using fallback: ${DEFAULT_PAYPAL_URL}`);
+    return DEFAULT_PAYPAL_URL;
+})();
+
+const createTicketManagementRow = () =>
+    new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId("ticket_close")
+            .setLabel("Ticket schließen")
+            .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+            .setCustomId("ticket_rename")
+            .setLabel("Ticket umbenennen")
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId("ticket_reopen")
+            .setLabel("Ticket wieder öffnen")
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId("ticket_delete")
+            .setLabel("Ticket löschen")
+            .setStyle(ButtonStyle.Danger)
+    );
+
+const buildPayPalPaymentUrl = (baseUrl, amount) => {
+    const normalizedAmount = Number(amount).toFixed(2);
+    const url = new URL(baseUrl);
+    const isPayPalMe = /(^|\.)paypal\.me$/i.test(url.hostname);
+
+    if (isPayPalMe) {
+        const pathWithoutSlash = url.pathname.replace(/\/+$/, "");
+        return `${url.origin}${pathWithoutSlash}/${normalizedAmount}`;
+    }
+
+    url.searchParams.set("amount", normalizedAmount);
+    return url.toString();
+};
+
+const isValidPaysafeCode = (value) => PAYSAFE_CODE_REGEX.test(String(value || "").trim());
+
 module.exports = {
     name: "interactionCreate",
     async execute(interaction) {
         try {
             if (interaction.isStringSelectMenu() && interaction.customId === "pack_select") {
+                const selectedProduct = findProductById(interaction.values?.[0]);
+                if (!selectedProduct) {
+                    return interaction.reply({
+                        content: "Dieses Paket existiert nicht mehr. Bitte erneut auswählen.",
+                        ephemeral: true
+                    });
+                }
+
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setLabel("PayPal")
+                        .setLabel(`PayPal (${selectedProduct.price.toFixed(2)}€)`)
                         .setStyle(ButtonStyle.Link)
-                        // Link buttons intentionally use URL instead of customId.
-                        .setURL(SAFE_PAYPAL_URL),
+                        .setURL(buildPayPalPaymentUrl(SAFE_PAYPAL_URL, selectedProduct.price)),
                     new ButtonBuilder()
-                        .setCustomId("choose_psc")
+                        .setCustomId(`${CHOOSE_PSC_PREFIX}${selectedProduct.id}`)
                         .setLabel("Paysafecard")
                         .setStyle(ButtonStyle.Secondary)
                 );
 
                 return interaction.reply({
-                    content: "Bitte wähle deine Zahlungsmethode aus:",
+                    content: `Bitte wähle die Zahlungsmethode für **${selectedProduct.label}** aus:`,
                     components: [row],
                     ephemeral: true
                 });
             }
 
             if (interaction.isButton()) {
-                if (interaction.customId === "choose_psc") {
+                if (interaction.customId.startsWith(CHOOSE_PSC_PREFIX)) {
+                    const productId = interaction.customId.slice(CHOOSE_PSC_PREFIX.length);
+                    const product = findProductById(productId);
+                    if (!product) {
+                        return interaction.reply({
+                            content: "Das ausgewählte Paket existiert nicht mehr.",
+                            ephemeral: true
+                        });
+                    }
+
                     const pscModal = new ModalBuilder()
-                        .setCustomId("psc_modal")
+                        .setCustomId(`${PSC_MODAL_PREFIX}${product.id}`)
                         .setTitle("Paysafecard Zahlung");
 
                     const code = new TextInputBuilder()
                         .setCustomId("psc_code")
-                        .setLabel("PSC Code eingeben")
+                        .setLabel("PSC Code eingeben (16-stellig)")
                         .setStyle(TextInputStyle.Short)
-                        .setRequired(true);
+                        .setRequired(true)
+                        .setPlaceholder("1234-5678-9012-3456")
+                        .setMinLength(16)
+                        .setMaxLength(PSC_MAX_INPUT_LENGTH);
 
                     pscModal.addComponents(new ActionRowBuilder().addComponents(code));
                     return interaction.showModal(pscModal);
@@ -237,7 +279,24 @@ module.exports = {
                     });
                 }
 
-                if (interaction.customId === "psc_modal") {
+                if (interaction.customId.startsWith(PSC_MODAL_PREFIX)) {
+                    const selectedProductId = interaction.customId.slice(PSC_MODAL_PREFIX.length);
+                    const selectedProduct = findProductById(selectedProductId);
+                    if (!selectedProduct) {
+                        return interaction.reply({
+                            content: "Das ausgewählte Paket existiert nicht mehr.",
+                            ephemeral: true
+                        });
+                    }
+
+                    const paymentInfo = interaction.fields.getTextInputValue("psc_code").trim();
+                    if (!isValidPaysafeCode(paymentInfo)) {
+                        return interaction.reply({
+                            content: "Ungültiger Paysafecard-Code. Erlaubt sind 16 Ziffern (z. B. 1234-5678-9012-3456).",
+                            ephemeral: true
+                        });
+                    }
+
                     const guild = interaction.guild;
                     await guild.channels.fetch();
                     const existingTicket = guild.channels.cache.find(
@@ -255,7 +314,6 @@ module.exports = {
                     }
 
                     const normalizedUser = sanitizeTicketNameSegment(interaction.user.username);
-                    const paymentInfo = interaction.fields.getTextInputValue("psc_code");
 
                     const ticketChannel = await guild.channels.create({
                         name: `ticket-${normalizedUser}`,
@@ -277,6 +335,23 @@ module.exports = {
                         ]
                     });
 
+                    try {
+                        addPaysafeEntry({
+                            userId: interaction.user.id,
+                            channelId: ticketChannel.id,
+                            packId: selectedProduct.id,
+                            packLabel: selectedProduct.label,
+                            packPrice: selectedProduct.price,
+                            rawCode: paymentInfo
+                        });
+                    } catch (storageError) {
+                        await ticketChannel.delete("PSC-Code konnte nicht sicher gespeichert werden");
+                        return interaction.reply({
+                            content: "PSC-Code konnte nicht sicher gespeichert werden. Bitte Admin informieren.",
+                            ephemeral: true
+                        });
+                    }
+
                     await interaction.reply({
                         content: `Dein Ticket wurde erstellt: ${ticketChannel}`,
                         ephemeral: true
@@ -284,7 +359,16 @@ module.exports = {
 
                     await ticketChannel.send({
                         content: `${interaction.user}, danke für deine Angaben. Unser Team meldet sich hier bei dir.`,
-                        embeds: [ticketEmbed(interaction.user.username, interaction.user.id, paymentInfo, "paysafe")],
+                        embeds: [
+                            ticketEmbed({
+                                userName: interaction.user.username,
+                                userId: interaction.user.id,
+                                paymentInfo,
+                                paymentMethod: "paysafe",
+                                packLabel: selectedProduct.label,
+                                packPrice: selectedProduct.price
+                            })
+                        ],
                         components: [createTicketManagementRow()]
                     });
                 }

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "kleidung-basic",
+    "label": "Kleidung Basic",
+    "price": 9.99
+  },
+  {
+    "id": "kleidung-premium",
+    "label": "Kleidung Premium",
+    "price": 19.99
+  },
+  {
+    "id": "kleidung-custom",
+    "label": "Kleidung Custom",
+    "price": 29.99
+  }
+]
