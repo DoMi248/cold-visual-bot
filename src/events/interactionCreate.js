@@ -14,6 +14,18 @@ const { PAYPAL_URL } = require("../config");
 
 const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
 const MAX_TICKET_NAME_LENGTH = 80;
+const DEFAULT_PAYPAL_URL = "https://www.paypal.com/";
+
+const isHttpUrl = (value) => {
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+        return false;
+    }
+};
+
+const SAFE_PAYPAL_URL = isHttpUrl(PAYPAL_URL) ? PAYPAL_URL : DEFAULT_PAYPAL_URL;
 
 const createTicketManagementRow = () =>
     new ActionRowBuilder().addComponents(
@@ -90,7 +102,7 @@ module.exports = {
                     new ButtonBuilder()
                         .setLabel("PayPal")
                         .setStyle(ButtonStyle.Link)
-                        .setURL(PAYPAL_URL),
+                        .setURL(SAFE_PAYPAL_URL),
                     new ButtonBuilder()
                         .setCustomId("choose_psc")
                         .setLabel("Paysafecard")
