@@ -10,12 +10,10 @@ const {
     EmbedBuilder
 } = require("discord.js");
 const ticketEmbed = require("../components/embeds/ticketEmbed");
-const { PAYPAL_URL } = require("../config");
+const { PAYPAL_URL, DEFAULT_PAYPAL_URL } = require("../config");
 
 const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
 const MAX_TICKET_NAME_LENGTH = 80;
-const DEFAULT_PAYPAL_URL = "https://www.paypal.com/";
-
 const isHttpUrl = (value) => {
     try {
         const parsed = new URL(value);
@@ -106,6 +104,7 @@ module.exports = {
                     new ButtonBuilder()
                         .setLabel("PayPal")
                         .setStyle(ButtonStyle.Link)
+                        // Link buttons intentionally use URL instead of customId.
                         .setURL(SAFE_PAYPAL_URL),
                     new ButtonBuilder()
                         .setCustomId("choose_psc")
