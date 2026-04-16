@@ -10,9 +10,24 @@ const {
     EmbedBuilder
 } = require("discord.js");
 const ticketEmbed = require("../components/embeds/ticketEmbed");
+const { PAYPAL_URL, DEFAULT_PAYPAL_URL } = require("../config");
 
 const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
 const MAX_TICKET_NAME_LENGTH = 80;
+const isHttpUrl = (value) => {
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+        return false;
+    }
+};
+
+const SAFE_PAYPAL_URL = (() => {
+    if (isHttpUrl(PAYPAL_URL)) return PAYPAL_URL;
+    console.warn(`PAYPAL_URL is invalid or empty. Using fallback: ${DEFAULT_PAYPAL_URL}`);
+    return DEFAULT_PAYPAL_URL;
+})();
 
 const createTicketManagementRow = () =>
     new ActionRowBuilder().addComponents(
@@ -87,9 +102,10 @@ module.exports = {
             if (interaction.isStringSelectMenu() && interaction.customId === "pack_select") {
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setCustomId("choose_paypal")
                         .setLabel("PayPal")
-                        .setStyle(ButtonStyle.Primary),
+                        .setStyle(ButtonStyle.Link)
+                        // Link buttons intentionally use URL instead of customId.
+                        .setURL(SAFE_PAYPAL_URL),
                     new ButtonBuilder()
                         .setCustomId("choose_psc")
                         .setLabel("Paysafecard")
@@ -104,22 +120,6 @@ module.exports = {
             }
 
             if (interaction.isButton()) {
-                if (interaction.customId === "choose_paypal") {
-                    const paypalModal = new ModalBuilder()
-                        .setCustomId("paypal_modal")
-                        .setTitle("PayPal Zahlung");
-
-                    const info = new TextInputBuilder()
-                        .setCustomId("paypal_info")
-                        .setLabel("PayPal E-Mail für den Nachweis")
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder("deine-paypal@mail.com")
-                        .setRequired(true);
-
-                    paypalModal.addComponents(new ActionRowBuilder().addComponents(info));
-                    return interaction.showModal(paypalModal);
-                }
-
                 if (interaction.customId === "choose_psc") {
                     const pscModal = new ModalBuilder()
                         .setCustomId("psc_modal")
@@ -237,7 +237,7 @@ module.exports = {
                     });
                 }
 
-                if (interaction.customId === "paypal_modal" || interaction.customId === "psc_modal") {
+                if (interaction.customId === "psc_modal") {
                     const guild = interaction.guild;
                     await guild.channels.fetch();
                     const existingTicket = guild.channels.cache.find(
@@ -255,11 +255,7 @@ module.exports = {
                     }
 
                     const normalizedUser = sanitizeTicketNameSegment(interaction.user.username);
-                    const paymentMethod = interaction.customId === "psc_modal" ? "paysafe" : "paypal";
-                    const paymentInfo =
-                        paymentMethod === "paysafe"
-                            ? interaction.fields.getTextInputValue("psc_code")
-                            : interaction.fields.getTextInputValue("paypal_info");
+                    const paymentInfo = interaction.fields.getTextInputValue("psc_code");
 
                     const ticketChannel = await guild.channels.create({
                         name: `ticket-${normalizedUser}`,
@@ -288,7 +284,7 @@ module.exports = {
 
                     await ticketChannel.send({
                         content: `${interaction.user}, danke für deine Angaben. Unser Team meldet sich hier bei dir.`,
-                        embeds: [ticketEmbed(interaction.user.username, interaction.user.id, paymentInfo, paymentMethod)],
+                        embeds: [ticketEmbed(interaction.user.username, interaction.user.id, paymentInfo, "paysafe")],
                         components: [createTicketManagementRow()]
                     });
                 }
