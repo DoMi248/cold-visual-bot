@@ -240,7 +240,6 @@ module.exports = {
                     }
 
                     const normalizedUser = sanitizeTicketNameSegment(interaction.user.username);
-                    const paymentMethod = "paysafe";
                     const paymentInfo = interaction.fields.getTextInputValue("psc_code");
 
                     const ticketChannel = await guild.channels.create({
@@ -270,7 +269,7 @@ module.exports = {
 
                     await ticketChannel.send({
                         content: `${interaction.user}, danke für deine Angaben. Unser Team meldet sich hier bei dir.`,
-                        embeds: [ticketEmbed(interaction.user.username, interaction.user.id, paymentInfo, paymentMethod)],
+                        embeds: [ticketEmbed(interaction.user.username, interaction.user.id, paymentInfo, "paysafe")],
                         components: [createTicketManagementRow()]
                     });
                 }
