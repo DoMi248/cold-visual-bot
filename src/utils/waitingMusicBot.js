@@ -356,7 +356,7 @@ const handleWaitingRoomJoin = async (oldState, newState) => {
     try {
         const tracks = ensureTracks();
         const session = await ensureSession(newState.guild, targetChannel);
-        playTrack(session, tracks, session.selectedTrackIndex || 0);
+        playTrack(session, tracks, session.selectedTrackIndex ?? 0);
     } catch (error) {
         console.error("Wartezimmer-Begrüßungsmusik konnte nicht abgespielt werden:", error);
     }
