@@ -15,7 +15,8 @@ module.exports = {
     CHANNEL_IDS: {
         PRICELIST: process.env.PRICELIST_CHANNEL_ID || "",
         TICKET_TRANSCRIPTS: process.env.TICKET_TRANSCRIPT_CHANNEL_ID || "",
-        PSC_ENCRYPT_LOG: process.env.PSC_ENCRYPT_CHANNEL_ID || ""
+        PSC_ENCRYPT_LOG: process.env.PSC_ENCRYPT_CHANNEL_ID || "",
+        TICKET_REVIEWS: process.env.TICKET_REVIEW_CHANNEL_ID || ""
     },
     MUSIC: {
         STREAM_URL: process.env.MUSIC_STREAM_URL || "",

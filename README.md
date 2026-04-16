@@ -55,7 +55,9 @@ Alias für `wartemusik`: `music`, `waitmusic`
 - Käufer wählt Paket über Dropdown aus.
 - Bei PSC wird ein Ticket erstellt und der PSC-Code verschlüsselt gespeichert.
 - **Neu:** Bei jedem PSC-Kauf wird automatisch die Ticket-Channel-ID plus verschlüsselter Code in den konfigurierten Encrypt-Channel gepostet.
-- **Neu:** Beim Schließen eines Tickets wird automatisch ein Transcript erstellt:
+- **Neu:** Käufer können eine Schließung anfragen, dabei öffnet sich automatisch ein Bewertungsfenster (1-5 Sterne + Text) und die Bewertung wird in den Review-Channel gepostet.
+- **Neu:** Admins können die Schließung erzwingen, das Ticket bleibt danach 24h für die Bewertung sichtbar und wird anschließend automatisch gelöscht.
+- **Neu:** Beim Erzwingen der Schließung eines Tickets wird automatisch ein Transcript erstellt:
   - Post im konfigurierten Transcript-Channel
   - Versand als DM an den Käufer (Ticket-Owner)
 
@@ -67,6 +69,7 @@ GUILD_ID=
 PRICELIST_CHANNEL_ID=
 TICKET_TRANSCRIPT_CHANNEL_ID=
 PSC_ENCRYPT_CHANNEL_ID=
+TICKET_REVIEW_CHANNEL_ID=
 COMMAND_PREFIX=!
 PAYPAL_URL=https://paypal.me/your-paypal-link
 PSC_ENCRYPTION_KEY=change-me-to-a-long-random-secret
@@ -80,6 +83,8 @@ MUSIC_DEFAULT_VOICE_CHANNEL_ID=
   Ziel-Channel für Ticket-Transcripts.
 - `PSC_ENCRYPT_CHANNEL_ID`  
   Ziel-Channel für PSC-Encrypt-Logs (Channel-ID + verschlüsselter Code).
+- `TICKET_REVIEW_CHANNEL_ID`  
+  Ziel-Channel für Käufer-Bewertungen (Sterne + Text).
 - `MUSIC_STREAM_URL`  
   HTTP/HTTPS-Audioquelle für den Wartezimmer-Musikbot.
 - `MUSIC_DEFAULT_VOICE_CHANNEL_ID`  
