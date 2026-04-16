@@ -5,6 +5,7 @@ Discord-Bot für Produkt-/Preislisten, Ticket-Abwicklung und PSC-Verarbeitung.
 ## Commands
 
 > Prefix ist standardmäßig `!` (konfigurierbar über `COMMAND_PREFIX`).
+> Wenn ein User nur `!` schreibt, zeigt der Bot die für seine Rolle verfügbaren Chat-Befehle an.
 
 ### Pricelist
 
@@ -50,6 +51,11 @@ Alias für `product`: `products`, `pack`, `packs`
 
 Alias für `wartemusik`: `music`, `waitmusic`
 
+## Level-System
+
+- Jeder User sammelt beim Schreiben XP (mit kurzer Anti-Spam-Cooldown-Zeit).
+- Bei einem Level-Up postet der Bot ausschließlich im konfigurierten `LEVEL_UP_CHANNEL_ID`.
+
 ## Ticket-/Kauf-Flow
 
 - Käufer wählt Paket über Dropdown aus.
@@ -70,6 +76,7 @@ PRICELIST_CHANNEL_ID=
 TICKET_TRANSCRIPT_CHANNEL_ID=
 PSC_ENCRYPT_CHANNEL_ID=
 TICKET_REVIEW_CHANNEL_ID=
+LEVEL_UP_CHANNEL_ID=
 COMMAND_PREFIX=!
 PAYPAL_URL=https://paypal.me/your-paypal-link
 PSC_ENCRYPTION_KEY=change-me-to-a-long-random-secret
@@ -85,6 +92,8 @@ MUSIC_DEFAULT_VOICE_CHANNEL_ID=
   Ziel-Channel für PSC-Encrypt-Logs (Channel-ID + verschlüsselter Code).
 - `TICKET_REVIEW_CHANNEL_ID`  
   Ziel-Channel für Käufer-Bewertungen (Sterne + Text).
+- `LEVEL_UP_CHANNEL_ID`  
+  Ziel-Channel für Level-Up-Nachrichten.
 - `MUSIC_STREAM_URL`  
   HTTP/HTTPS-Audioquelle für den Wartezimmer-Musikbot.
 - `MUSIC_DEFAULT_VOICE_CHANNEL_ID`  
