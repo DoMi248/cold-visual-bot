@@ -1,5 +1,4 @@
 require("dotenv").config();
-console.log("TOKEN:", process.env.DISCORD_TOKEN);
 
 const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
 const fs = require("fs");
@@ -24,8 +23,12 @@ for (const file of eventFiles) {
     const event = require(`./events/${file}`);
     client.events.set(event.name, event);
 
-    // WICHTIG: Nur EIN Argument weitergeben!
-    client.on(event.name, (interaction) => event.execute(interaction, client));
+    const handler = (...args) => event.execute(...args, client);
+    if (event.once) {
+        client.once(event.name, handler);
+    } else {
+        client.on(event.name, handler);
+    }
 }
 
 client.login(process.env.DISCORD_TOKEN);
