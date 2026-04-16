@@ -25,7 +25,11 @@ const isHttpUrl = (value) => {
     }
 };
 
-const SAFE_PAYPAL_URL = isHttpUrl(PAYPAL_URL) ? PAYPAL_URL : DEFAULT_PAYPAL_URL;
+const SAFE_PAYPAL_URL = (() => {
+    if (isHttpUrl(PAYPAL_URL)) return PAYPAL_URL;
+    console.warn(`PAYPAL_URL ist ungültig oder leer. Fallback wird verwendet: ${DEFAULT_PAYPAL_URL}`);
+    return DEFAULT_PAYPAL_URL;
+})();
 
 const createTicketManagementRow = () =>
     new ActionRowBuilder().addComponents(
