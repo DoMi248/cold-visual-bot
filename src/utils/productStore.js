@@ -1,6 +1,8 @@
 const { DATA_FILES } = require("../config");
 const { readJsonFile, writeJsonFile } = require("./fileHandler");
 
+const MAX_PRODUCT_LABEL_LENGTH = 100;
+
 const DEFAULT_PRODUCTS = [
     {
         id: "kleidung-basic",
@@ -54,7 +56,7 @@ const upsertProduct = ({ id, label, price }) => {
     const products = getProducts();
     const next = {
         id: normalizedId,
-        label: String(label).trim().slice(0, 100),
+        label: String(label).trim().slice(0, MAX_PRODUCT_LABEL_LENGTH),
         price: normalizedPrice
     };
     const existingIndex = products.findIndex((product) => product.id === normalizedId);
@@ -89,7 +91,7 @@ const updateProductField = (id, updates) => {
         if (!updates.label || !String(updates.label).trim()) {
             throw new Error("Produktname darf nicht leer sein.");
         }
-        next.label = String(updates.label).trim().slice(0, 100);
+        next.label = String(updates.label).trim().slice(0, MAX_PRODUCT_LABEL_LENGTH);
     }
 
     if (Object.prototype.hasOwnProperty.call(updates, "price")) {

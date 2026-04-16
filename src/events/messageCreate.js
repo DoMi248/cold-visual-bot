@@ -194,9 +194,11 @@ module.exports = {
                         return;
                     }
 
-                    const lines = entries.map((entry) =>
-                        `• Channel: <#${entry.channelId}> | User: <@${entry.userId}> | Paket: **${entry.packLabel}** (${Number(entry.packPrice).toFixed(2)}€) | ${new Date(entry.createdAt).toLocaleString("de-DE")}`
-                    );
+                    const lines = entries.map((entry) => {
+                        const price = Number(entry.packPrice).toFixed(2);
+                        const createdAt = new Date(entry.createdAt).toLocaleString("de-DE");
+                        return `• Channel: <#${entry.channelId}> | User: <@${entry.userId}> | Paket: **${entry.packLabel}** (${price}€) | ${createdAt}`;
+                    });
                     await message.reply(lines.join("\n"));
                     return;
                 }

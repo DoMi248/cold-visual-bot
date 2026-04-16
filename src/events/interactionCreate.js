@@ -18,6 +18,7 @@ const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
 const MAX_TICKET_NAME_LENGTH = 80;
 const CHOOSE_PSC_PREFIX = "choose_psc:";
 const PSC_MODAL_PREFIX = "psc_modal:";
+const PSC_MAX_INPUT_LENGTH = 19;
 const PAYSAFE_CODE_REGEX = /^\d{4}([ -]?\d{4}){3}$/;
 
 const sanitizeTicketNameSegment = (value) =>
@@ -170,7 +171,7 @@ module.exports = {
                         .setRequired(true)
                         .setPlaceholder("1234-5678-9012-3456")
                         .setMinLength(16)
-                        .setMaxLength(19);
+                        .setMaxLength(PSC_MAX_INPUT_LENGTH);
 
                     pscModal.addComponents(new ActionRowBuilder().addComponents(code));
                     return interaction.showModal(pscModal);

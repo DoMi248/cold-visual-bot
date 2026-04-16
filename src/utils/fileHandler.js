@@ -19,7 +19,8 @@ const readJsonFile = (filePath, fallbackValue) => {
     try {
         const raw = fs.readFileSync(filePath, "utf8");
         return JSON.parse(raw);
-    } catch {
+    } catch (error) {
+        console.error(`JSON konnte nicht gelesen werden (${filePath}):`, error);
         return fallbackValue;
     }
 };
