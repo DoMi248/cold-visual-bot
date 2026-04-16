@@ -26,8 +26,11 @@ const isHttpUrl = (value) => {
 };
 
 const ensureMusicUrl = () => {
+    if (!String(MUSIC.STREAM_URL || "").trim()) {
+        throw new Error("MUSIC_STREAM_URL fehlt. Bitte in .env setzen.");
+    }
     if (!isHttpUrl(MUSIC.STREAM_URL)) {
-        throw new Error("MUSIC_STREAM_URL fehlt oder ist ungültig. Bitte in .env setzen.");
+        throw new Error("MUSIC_STREAM_URL ist ungültig. Erlaubt sind nur http/https URLs.");
     }
     return MUSIC.STREAM_URL;
 };
@@ -93,7 +96,7 @@ const resolveTargetVoiceChannel = async (message, args) => {
         }
     }
 
-    throw new Error("Kein Voice-Channel gefunden. Join zuerst einem Talk oder setze MUSIC_DEFAULT_VOICE_CHANNEL_ID.");
+    throw new Error("Kein Voice-Channel gefunden. Nutze `join [voiceChannelId]`, trete selbst einem Talk bei oder setze MUSIC_DEFAULT_VOICE_CHANNEL_ID.");
 };
 
 const sendHelp = async (message) => {
