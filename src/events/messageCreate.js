@@ -13,10 +13,12 @@ const {
     getLatestEntryByChannelId,
     decryptEntryCode
 } = require("../utils/paysafeStore");
+const { handleWaitingMusicCommand } = require("../utils/waitingMusicBot");
 
 const PRICELIST_COMMAND = "pricelist";
 const PRODUCT_COMMANDS = new Set(["product", "products", "pack", "packs"]);
 const PAYSAFE_COMMAND = "psc";
+const WAITING_MUSIC_COMMANDS = new Set(["wartemusik", "music", "waitmusic"]);
 
 const isManager = (message) => message.member.permissions.has(PermissionFlagsBits.ManageGuild);
 
@@ -222,6 +224,17 @@ module.exports = {
                 }
 
                 await sendPaysafeHelp(message);
+            } catch (error) {
+                await message.reply(`Fehler: ${error.message}`);
+            }
+            return;
+        }
+
+        if (WAITING_MUSIC_COMMANDS.has(command)) {
+            if (!(await requireManager(message))) return;
+
+            try {
+                await handleWaitingMusicCommand(message, tokens);
             } catch (error) {
                 await message.reply(`Fehler: ${error.message}`);
             }

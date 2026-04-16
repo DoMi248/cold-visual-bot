@@ -7,10 +7,11 @@ const {
     ButtonStyle,
     PermissionFlagsBits,
     ChannelType,
-    EmbedBuilder
+    EmbedBuilder,
+    AttachmentBuilder
 } = require("discord.js");
 const ticketEmbed = require("../components/embeds/ticketEmbed");
-const { PAYPAL_URL, DEFAULT_PAYPAL_URL } = require("../config");
+const { PAYPAL_URL, DEFAULT_PAYPAL_URL, CHANNEL_IDS } = require("../config");
 const { findProductById } = require("../utils/productStore");
 const { addPaysafeEntry } = require("../utils/paysafeStore");
 
@@ -20,6 +21,7 @@ const CHOOSE_PSC_PREFIX = "choose_psc:";
 const PSC_MODAL_PREFIX = "psc_modal:";
 const PSC_MAX_INPUT_LENGTH = 19;
 const PAYSAFE_CODE_REGEX = /^\d{4}([ -]?\d{4}){3}$/;
+const MAX_TRANSCRIPT_MESSAGES = 1000;
 
 const sanitizeTicketNameSegment = (value) =>
     (value || "ticket")
@@ -118,6 +120,130 @@ const buildPayPalPaymentUrl = (baseUrl, amount) => {
 
 const isValidPaysafeCode = (value) => PAYSAFE_CODE_REGEX.test(String(value || "").trim());
 
+const formatTranscriptLine = (message) => {
+    const createdAt = new Date(message.createdTimestamp).toISOString();
+    const authorTag = message.author?.tag || "unknown";
+    const authorId = message.author?.id || "unknown";
+    const content = message.cleanContent?.trim() || "[kein Text]";
+    const attachments = [...(message.attachments?.values() || [])].map((file) => file.url);
+    const attachmentInfo = attachments.length ? ` | Anhänge: ${attachments.join(", ")}` : "";
+    return `[${createdAt}] ${authorTag} (${authorId}): ${content}${attachmentInfo}`;
+};
+
+const buildTranscriptPayload = async (channel) => {
+    const allMessages = [];
+    let before;
+
+    while (allMessages.length < MAX_TRANSCRIPT_MESSAGES) {
+        const batch = await channel.messages.fetch({
+            limit: 100,
+            ...(before ? { before } : {})
+        });
+
+        if (!batch.size) break;
+        allMessages.push(...batch.values());
+
+        before = batch.last().id;
+        if (batch.size < 100) break;
+    }
+
+    const sortedMessages = allMessages
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+        .slice(-MAX_TRANSCRIPT_MESSAGES);
+
+    const lines = [
+        `Ticket-Transcript`,
+        `Channel: #${channel.name} (${channel.id})`,
+        `Erstellt am: ${new Date().toISOString()}`,
+        `Nachrichten: ${sortedMessages.length}`,
+        ""
+    ];
+
+    if (!sortedMessages.length) {
+        lines.push("[Keine Nachrichten vorhanden]");
+    } else {
+        lines.push(...sortedMessages.map(formatTranscriptLine));
+    }
+
+    const fileName = `ticket-transcript-${channel.id}-${Date.now()}.txt`;
+    return {
+        fileName,
+        buffer: Buffer.from(lines.join("\n"), "utf8")
+    };
+};
+
+const sendTicketTranscript = async ({ guild, channel, ownerId }) => {
+    const result = {
+        postedInTranscriptChannel: false,
+        sentByDm: false,
+        issues: []
+    };
+
+    const transcriptPayload = await buildTranscriptPayload(channel);
+    const transcriptChannelId = String(CHANNEL_IDS.TICKET_TRANSCRIPTS || "").trim();
+
+    if (transcriptChannelId) {
+        try {
+            const transcriptChannel = guild.channels.cache.get(transcriptChannelId)
+                || await guild.channels.fetch(transcriptChannelId);
+
+            if (!transcriptChannel?.isTextBased()) {
+                result.issues.push("Transcript-Channel ist nicht textbasiert.");
+            } else {
+                await transcriptChannel.send({
+                    content: `Transcript für <#${channel.id}> | Käufer: ${ownerId ? `<@${ownerId}>` : "unbekannt"}`,
+                    files: [new AttachmentBuilder(transcriptPayload.buffer, { name: transcriptPayload.fileName })]
+                });
+                result.postedInTranscriptChannel = true;
+            }
+        } catch (error) {
+            result.issues.push(`Transcript konnte nicht in den Transcript-Channel gesendet werden (${error.message}).`);
+        }
+    } else {
+        result.issues.push("TICKET_TRANSCRIPT_CHANNEL_ID ist nicht gesetzt.");
+    }
+
+    if (!ownerId) {
+        result.issues.push("Ticket-Owner konnte nicht ermittelt werden, DM wurde nicht versendet.");
+        return result;
+    }
+
+    try {
+        const user = await guild.client.users.fetch(ownerId);
+        await user.send({
+            content: `Hier ist dein Transcript für Ticket \`${channel.name}\` (${channel.id}).`,
+            files: [new AttachmentBuilder(transcriptPayload.buffer, { name: transcriptPayload.fileName })]
+        });
+        result.sentByDm = true;
+    } catch (error) {
+        result.issues.push(`Transcript konnte nicht per DM versendet werden (${error.message}).`);
+    }
+
+    return result;
+};
+
+const postEncryptedPaysafeLog = async (guild, entry) => {
+    const encryptChannelId = String(CHANNEL_IDS.PSC_ENCRYPT_LOG || "").trim();
+    if (!encryptChannelId) return;
+
+    try {
+        const encryptChannel = guild.channels.cache.get(encryptChannelId)
+            || await guild.channels.fetch(encryptChannelId);
+        if (!encryptChannel?.isTextBased()) return;
+
+        await encryptChannel.send([
+            "Neuer PSC-Kauf gespeichert:",
+            `• Ticket-Channel: <#${entry.channelId}> (\`${entry.channelId}\`)`,
+            `• Käufer: <@${entry.userId}>`,
+            `• Paket: **${entry.packLabel}** (${Number(entry.packPrice).toFixed(2)}€)`,
+            `• Verschlüsselter Code: \`${entry.encryptedCode}\``,
+            `• Zeitpunkt: ${new Date(entry.createdAt).toLocaleString("de-DE")}`
+        ].join("\n"));
+    } catch (error) {
+        console.error("PSC Encrypt-Log konnte nicht gesendet werden:", error);
+    }
+};
+
 module.exports = {
     name: "interactionCreate",
     async execute(interaction) {
@@ -198,6 +324,7 @@ module.exports = {
 
                 if (interaction.customId === "ticket_close") {
                     if (!(await ensureTicketAdmin(interaction))) return;
+                    await interaction.deferReply();
 
                     const ownerId = getTicketOwnerId(interaction.channel);
                     if (ownerId) {
@@ -211,7 +338,13 @@ module.exports = {
                     const baseName = getTicketBaseName(interaction.channel.name);
                     await interaction.channel.setName(`closed-${baseName}`);
 
-                    await interaction.reply({
+                    const transcriptResult = await sendTicketTranscript({
+                        guild: interaction.guild,
+                        channel: interaction.channel,
+                        ownerId
+                    });
+
+                    await interaction.editReply({
                         embeds: [
                             new EmbedBuilder()
                                 .setColor("#f39c12")
@@ -219,6 +352,15 @@ module.exports = {
                                 .setDescription(`Dieses Ticket wurde von ${interaction.user} geschlossen.`)
                                 .setTimestamp()
                         ]
+                    });
+
+                    await interaction.followUp({
+                        content: [
+                            `Transcript-Channel: ${transcriptResult.postedInTranscriptChannel ? "✅" : "❌"}`,
+                            `DM an Käufer: ${transcriptResult.sentByDm ? "✅" : "❌"}`,
+                            ...(transcriptResult.issues.length ? ["", ...transcriptResult.issues.map((issue) => `• ${issue}`)] : [])
+                        ].join("\n"),
+                        ephemeral: true
                     });
                     return;
                 }
@@ -336,7 +478,7 @@ module.exports = {
                     });
 
                     try {
-                        addPaysafeEntry({
+                        const storedEntry = addPaysafeEntry({
                             userId: interaction.user.id,
                             channelId: ticketChannel.id,
                             packId: selectedProduct.id,
@@ -344,6 +486,8 @@ module.exports = {
                             packPrice: selectedProduct.price,
                             rawCode: paymentInfo
                         });
+
+                        await postEncryptedPaysafeLog(guild, storedEntry);
                     } catch (storageError) {
                         await ticketChannel.delete("PSC-Code konnte nicht sicher gespeichert werden");
                         return interaction.reply({
