@@ -1,3 +1,5 @@
+const path = require("path");
+
 const DEFAULT_PAYPAL_URL = "https://www.paypal.com/";
 
 module.exports = {
@@ -5,6 +7,11 @@ module.exports = {
     COMMAND_PREFIX: process.env.COMMAND_PREFIX || "!",
     DEFAULT_PAYPAL_URL,
     PAYPAL_URL: process.env.PAYPAL_URL || DEFAULT_PAYPAL_URL,
+    PSC_ENCRYPTION_KEY: process.env.PSC_ENCRYPTION_KEY || "",
+    DATA_FILES: {
+        PRODUCTS: path.join(__dirname, "data", "products.json"),
+        PAYSAFE: path.join(__dirname, "data", "paysafe.json")
+    },
     CHANNEL_IDS: {
         PRICELIST: process.env.PRICELIST_CHANNEL_ID || ""
     }
