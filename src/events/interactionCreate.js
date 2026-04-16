@@ -22,6 +22,9 @@ const PSC_MODAL_PREFIX = "psc_modal:";
 const PSC_MAX_INPUT_LENGTH = 19;
 const PAYSAFE_CODE_REGEX = /^\d{4}([ -]?\d{4}){3}$/;
 const MAX_TRANSCRIPT_MESSAGES = 1000;
+const AUTO_DELETE_DELAY_MS = 24 * 60 * 60 * 1000;
+const TICKET_RATING_MODAL_ID = "ticket_rating_modal";
+const ticketAutoDeleteTimeouts = new Map();
 
 const sanitizeTicketNameSegment = (value) =>
     (value || "ticket")
@@ -48,6 +51,8 @@ const userIsTicketAdmin = (interaction) =>
         interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
         interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)
     );
+
+const userIsTicketOwner = (interaction) => getTicketOwnerId(interaction.channel) === interaction.user.id;
 
 const ensureTicketAdmin = async (interaction) => {
     if (!userIsTicketAdmin(interaction)) {
@@ -87,17 +92,21 @@ const SAFE_PAYPAL_URL = (() => {
 const createTicketManagementRow = () =>
     new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId("ticket_close")
-            .setLabel("Ticket schließen")
+            .setCustomId("ticket_request_close")
+            .setLabel("Schließung anfragen")
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId("ticket_rate")
+            .setLabel("Artikel bewerten")
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId("ticket_force_close")
+            .setLabel("Schließung erzwingen")
             .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
             .setCustomId("ticket_rename")
             .setLabel("Ticket umbenennen")
             .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-            .setCustomId("ticket_reopen")
-            .setLabel("Ticket wieder öffnen")
-            .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
             .setCustomId("ticket_delete")
             .setLabel("Ticket löschen")
@@ -322,9 +331,52 @@ module.exports = {
                     return interaction.showModal(modal);
                 }
 
-                if (interaction.customId === "ticket_close") {
+                if (interaction.customId === "ticket_request_close" || interaction.customId === "ticket_rate") {
+                    if (!isTicketChannel(interaction.channel)) {
+                        return interaction.reply({
+                            content: "Diese Aktion ist nur in Ticket-Kanälen verfügbar.",
+                            ephemeral: true
+                        });
+                    }
+
+                    if (userIsTicketAdmin(interaction) || !userIsTicketOwner(interaction)) {
+                        return interaction.reply({
+                            content: "Nur der Käufer (nicht Admins) kann diese Aktion ausführen.",
+                            ephemeral: true
+                        });
+                    }
+
+                    const ratingModal = new ModalBuilder()
+                        .setCustomId(TICKET_RATING_MODAL_ID)
+                        .setTitle("Artikel bewerten");
+
+                    const starsInput = new TextInputBuilder()
+                        .setCustomId("ticket_rating_stars")
+                        .setLabel("Sterne (1-5)")
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder("1, 2, 3, 4 oder 5")
+                        .setRequired(true)
+                        .setMinLength(1)
+                        .setMaxLength(1);
+
+                    const textInput = new TextInputBuilder()
+                        .setCustomId("ticket_rating_text")
+                        .setLabel("Kommentar")
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder("Optionaler Text zu deiner Bewertung")
+                        .setRequired(false)
+                        .setMaxLength(1000);
+
+                    ratingModal.addComponents(
+                        new ActionRowBuilder().addComponents(starsInput),
+                        new ActionRowBuilder().addComponents(textInput)
+                    );
+                    return interaction.showModal(ratingModal);
+                }
+
+                if (interaction.customId === "ticket_force_close") {
                     if (!(await ensureTicketAdmin(interaction))) return;
-                    await interaction.deferReply();
+                    await interaction.deferReply({ ephemeral: true });
 
                     const ownerId = getTicketOwnerId(interaction.channel);
                     if (ownerId) {
@@ -338,6 +390,26 @@ module.exports = {
                     const baseName = getTicketBaseName(interaction.channel.name);
                     await interaction.channel.setName(`closed-${baseName}`);
 
+                    if (ticketAutoDeleteTimeouts.has(interaction.channel.id)) {
+                        clearTimeout(ticketAutoDeleteTimeouts.get(interaction.channel.id));
+                    }
+
+                    const channelIdForTimeout = interaction.channel.id;
+                    const guildIdForTimeout = interaction.guild.id;
+                    const timeoutHandle = setTimeout(async () => {
+                        ticketAutoDeleteTimeouts.delete(channelIdForTimeout);
+                        try {
+                            const guild = await interaction.client.guilds.fetch(guildIdForTimeout);
+                            const channel = await guild.channels.fetch(channelIdForTimeout);
+                            if (channel && isTicketChannel(channel)) {
+                                await channel.delete("Ticket wurde nach 24h Wartezeit automatisch gelöscht");
+                            }
+                        } catch {
+                            // noop
+                        }
+                    }, AUTO_DELETE_DELAY_MS);
+                    ticketAutoDeleteTimeouts.set(interaction.channel.id, timeoutHandle);
+
                     const transcriptResult = await sendTicketTranscript({
                         guild: interaction.guild,
                         channel: interaction.channel,
@@ -345,17 +417,13 @@ module.exports = {
                     });
 
                     await interaction.editReply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor("#f39c12")
-                                .setTitle("Ticket geschlossen")
-                                .setDescription(`Dieses Ticket wurde von ${interaction.user} geschlossen.`)
-                                .setTimestamp()
-                        ]
+                        content: "Schließung erzwungen. Ticket bleibt 24h für die Bewertung sichtbar."
                     });
 
+                    const deleteAtUnix = Math.floor((Date.now() + AUTO_DELETE_DELAY_MS) / 1000);
                     await interaction.followUp({
                         content: [
+                            `Automatische Löschung: <t:${deleteAtUnix}:F> (<t:${deleteAtUnix}:R>)`,
                             `Transcript-Channel: ${transcriptResult.postedInTranscriptChannel ? "✅" : "❌"}`,
                             `DM an Käufer: ${transcriptResult.sentByDm ? "✅" : "❌"}`,
                             ...(transcriptResult.issues.length ? ["", ...transcriptResult.issues.map((issue) => `• ${issue}`)] : [])
@@ -365,35 +433,13 @@ module.exports = {
                     return;
                 }
 
-                if (interaction.customId === "ticket_reopen") {
-                    if (!(await ensureTicketAdmin(interaction))) return;
-
-                    const ownerId = getTicketOwnerId(interaction.channel);
-                    if (ownerId) {
-                        await interaction.channel.permissionOverwrites.edit(ownerId, {
-                            SendMessages: true,
-                            ViewChannel: true,
-                            ReadMessageHistory: true
-                        });
-                    }
-
-                    const baseName = getTicketBaseName(interaction.channel.name);
-                    await interaction.channel.setName(`ticket-${baseName}`);
-
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor("#2ecc71")
-                                .setTitle("Ticket wieder geöffnet")
-                                .setDescription(`Dieses Ticket wurde von ${interaction.user} wieder geöffnet.`)
-                                .setTimestamp()
-                        ]
-                    });
-                    return;
-                }
-
                 if (interaction.customId === "ticket_delete") {
                     if (!(await ensureTicketAdmin(interaction))) return;
+
+                    if (ticketAutoDeleteTimeouts.has(interaction.channel.id)) {
+                        clearTimeout(ticketAutoDeleteTimeouts.get(interaction.channel.id));
+                        ticketAutoDeleteTimeouts.delete(interaction.channel.id);
+                    }
 
                     await interaction.reply({
                         content: "Ticket wird gelöscht…",
@@ -419,6 +465,83 @@ module.exports = {
                         content: `Ticket wurde umbenannt zu **${nextName}**.`,
                         ephemeral: true
                     });
+                }
+
+                if (interaction.customId === TICKET_RATING_MODAL_ID) {
+                    if (!isTicketChannel(interaction.channel)) {
+                        return interaction.reply({
+                            content: "Diese Aktion ist nur in Ticket-Kanälen verfügbar.",
+                            ephemeral: true
+                        });
+                    }
+
+                    if (userIsTicketAdmin(interaction) || !userIsTicketOwner(interaction)) {
+                        return interaction.reply({
+                            content: "Nur der Käufer (nicht Admins) kann eine Bewertung abgeben.",
+                            ephemeral: true
+                        });
+                    }
+
+                    const rawStars = interaction.fields.getTextInputValue("ticket_rating_stars").trim();
+                    const stars = Number(rawStars);
+                    if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
+                        return interaction.reply({
+                            content: "Bitte gib eine gültige Sternezahl von 1 bis 5 an.",
+                            ephemeral: true
+                        });
+                    }
+
+                    const reviewChannelId = String(CHANNEL_IDS.TICKET_REVIEWS || "").trim();
+                    if (!reviewChannelId) {
+                        return interaction.reply({
+                            content: "Bewertungs-Channel ist nicht konfiguriert (TICKET_REVIEW_CHANNEL_ID).",
+                            ephemeral: true
+                        });
+                    }
+
+                    const reviewChannel = interaction.guild.channels.cache.get(reviewChannelId)
+                        || await interaction.guild.channels.fetch(reviewChannelId).catch(() => null);
+                    if (!reviewChannel?.isTextBased()) {
+                        return interaction.reply({
+                            content: "Bewertungs-Channel ist nicht erreichbar oder nicht textbasiert.",
+                            ephemeral: true
+                        });
+                    }
+
+                    const ratingText = interaction.fields.getTextInputValue("ticket_rating_text").trim();
+                    const ownerId = getTicketOwnerId(interaction.channel);
+                    const starVisual = "⭐".repeat(stars);
+
+                    await reviewChannel.send({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor("#f1c40f")
+                                .setTitle("Neue Käufer-Bewertung")
+                                .addFields(
+                                    { name: "Käufer", value: ownerId ? `<@${ownerId}> (\`${ownerId}\`)` : interaction.user.toString(), inline: false },
+                                    { name: "Ticket", value: `<#${interaction.channel.id}> (\`${interaction.channel.id}\`)`, inline: false },
+                                    { name: "Bewertung", value: `${starVisual} (${stars}/5)`, inline: false },
+                                    { name: "Kommentar", value: ratingText || "Kein zusätzlicher Text.", inline: false }
+                                )
+                                .setTimestamp()
+                        ]
+                    });
+
+                    await interaction.reply({
+                        content: "Danke! Deine Bewertung wurde gespeichert und die Schließung angefragt.",
+                        ephemeral: true
+                    });
+
+                    await interaction.channel.send({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor("#3498db")
+                                .setTitle("Schließung angefragt")
+                                .setDescription(`${interaction.user} hat eine Schließung angefragt und eine Bewertung abgegeben.`)
+                                .setTimestamp()
+                        ]
+                    });
+                    return;
                 }
 
                 if (interaction.customId.startsWith(PSC_MODAL_PREFIX)) {
