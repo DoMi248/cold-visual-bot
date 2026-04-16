@@ -22,6 +22,9 @@ module.exports = {
     },
     MUSIC: {
         STREAM_URL: process.env.MUSIC_STREAM_URL || "",
-        DEFAULT_VOICE_CHANNEL_ID: process.env.MUSIC_DEFAULT_VOICE_CHANNEL_ID || ""
+        DEFAULT_VOICE_CHANNEL_ID: process.env.MUSIC_DEFAULT_VOICE_CHANNEL_ID || "",
+        WAITING_ROOM_CHANNEL_ID: process.env.MUSIC_WAITING_ROOM_CHANNEL_ID || "",
+        TRACKS: process.env.MUSIC_TRACKS || "",
+        AUDIO_DIR: process.env.MUSIC_AUDIO_DIR || ""
     }
 };
