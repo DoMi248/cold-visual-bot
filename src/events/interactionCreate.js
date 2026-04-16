@@ -345,7 +345,7 @@ module.exports = {
                             rawCode: paymentInfo
                         });
                     } catch (storageError) {
-                        await ticketChannel.delete("Paysafecard-Code konnte nicht sicher gespeichert werden");
+                        await ticketChannel.delete("PSC-Code konnte nicht sicher gespeichert werden");
                         return interaction.reply({
                             content: "PSC-Code konnte nicht sicher gespeichert werden. Bitte Admin informieren.",
                             ephemeral: true

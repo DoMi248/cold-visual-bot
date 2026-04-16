@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { PSC_ENCRYPTION_KEY } = require("../config");
 
 const ALGORITHM = "aes-256-gcm";
+// 12 bytes (96 bit) is the recommended IV size for GCM.
 const IV_LENGTH = 12;
 
 const getEncryptionKey = () => {
