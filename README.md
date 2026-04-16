@@ -43,11 +43,19 @@ Alias für `product`: `products`, `pack`, `packs`
 - `!wartemusik help`  
   Zeigt die Hilfe für Musik-Befehle.
 - `!wartemusik join [voiceChannelId]`  
-  Lässt den Bot einem Talk beitreten und den konfigurierten Stream abspielen (Loop).
+  Lässt den Bot einem Talk beitreten und den aktuell ausgewählten Track abspielen.
 - `!wartemusik leave`  
   Stoppt die Musik und lässt den Bot den Talk verlassen.
 - `!wartemusik status`  
   Zeigt den aktuellen Status der Wartezimmer-Musik.
+- `!wartemusik list`  
+  Zeigt alle lokal hinterlegten Tracks.
+- `!wartemusik switch <trackName|nummer>`  
+  Wechselt auf einen anderen Track.
+- `!wartemusik next` / `!wartemusik prev`  
+  Wechselt zum nächsten/vorherigen Track.
+
+- **Auto-Begrüßung:** Bei jedem Join in `MUSIC_WAITING_ROOM_CHANNEL_ID` spielt der Bot automatisch den aktuell ausgewählten Track im Warteraum.
 
 Alias für `wartemusik`: `music`, `waitmusic`
 
@@ -82,6 +90,9 @@ PAYPAL_URL=https://paypal.me/your-paypal-link
 PSC_ENCRYPTION_KEY=change-me-to-a-long-random-secret
 MUSIC_STREAM_URL=
 MUSIC_DEFAULT_VOICE_CHANNEL_ID=
+MUSIC_WAITING_ROOM_CHANNEL_ID=
+MUSIC_TRACKS=welcome-1.mp3,welcome-2.mp3
+MUSIC_AUDIO_DIR=src/data/audio
 ```
 
 ### Erklärung der neuen Variablen
@@ -98,3 +109,9 @@ MUSIC_DEFAULT_VOICE_CHANNEL_ID=
   HTTP/HTTPS-Audioquelle für den Wartezimmer-Musikbot.
 - `MUSIC_DEFAULT_VOICE_CHANNEL_ID`  
   Optionaler Standard-Talk, falls bei `join` kein Channel übergeben wurde und der Ausführende in keinem Talk ist.
+- `MUSIC_WAITING_ROOM_CHANNEL_ID`  
+  Voice-Channel-ID des Warteraums. Bei jedem Join wird dort automatisch Begrüßungs-Audio abgespielt.
+- `MUSIC_TRACKS`  
+  Komma-separierte Liste von Dateinamen aus `MUSIC_AUDIO_DIR` (z. B. `welcome-1.mp3,welcome-2.mp3`).
+- `MUSIC_AUDIO_DIR`  
+  Ordner mit lokal hinterlegten Audio-Dateien für den Musikbot.
