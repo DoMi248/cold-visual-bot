@@ -13,10 +13,12 @@ const {
 const { MUSIC, COMMAND_PREFIX } = require("../config");
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".m4a", ".webm"]);
+const CURRENT_TRACK_MARKER = "[AKTUELL]";
 const sessions = new Map();
 
 const normalizeChannelId = (value) => String(value || "").replace(/[<#>]/g, "").trim();
 const normalizeTrackToken = (value) => String(value || "").trim().toLowerCase();
+const wrapIndex = (index, length) => ((index % length) + length) % length;
 
 const resolveAudioDirectory = () => {
     const configured = String(MUSIC.AUDIO_DIR || "").trim();
@@ -231,7 +233,7 @@ const listTracks = async (message) => {
     const session = sessions.get(message.guild.id);
     const selectedIndex = session?.selectedTrackIndex ?? 0;
 
-    const lines = tracks.map((track, index) => `${index === selectedIndex ? "[AKTUELL]" : "•"} ${index + 1}. ${track.label}`);
+    const lines = tracks.map((track, index) => `${index === selectedIndex ? CURRENT_TRACK_MARKER : "•"} ${index + 1}. ${track.label}`);
     await message.reply(["Verfügbare Tracks:", ...lines].join("\n"));
 };
 
@@ -271,7 +273,7 @@ const switchRelativeTrack = async (message, step) => {
     }
 
     const currentIndex = currentSession.selectedTrackIndex || 0;
-    const nextIndex = ((currentIndex + step) % tracks.length + tracks.length) % tracks.length;
+    const nextIndex = wrapIndex(currentIndex + step, tracks.length);
     const track = playTrack(currentSession, tracks, nextIndex);
     await message.reply(`Jetzt läuft **${track.label}**.`);
 };
