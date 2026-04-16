@@ -1,4 +1,5 @@
 module.exports = {
-    GUILD_ID: "1376572905059516456",
-    TARGET_CHANNEL: "1490376149438562374"
+    GUILD_ID: process.env.GUILD_ID,
+    TARGET_CHANNEL: process.env.TARGET_CHANNEL,
+    PAYPAL_EMAIL: process.env.PAYPAL_EMAIL
 };

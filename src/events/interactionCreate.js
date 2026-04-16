@@ -6,6 +6,7 @@ const {
     ButtonBuilder,
     ButtonStyle
 } = require("discord.js");
+const { PAYPAL_EMAIL } = require("../config");
 
 module.exports = {
     name: "interactionCreate",
@@ -53,7 +54,7 @@ module.exports = {
                     .setCustomId("paypal_info")
                     .setLabel("Unsere PayPal E-Mail")
                     .setStyle(TextInputStyle.Short)
-                    .setValue("DEINE-PAYPAL-EMAIL")
+                    .setValue(PAYPAL_EMAIL || "PAYPAL_EMAIL_NICHT_GESETZT")
                     .setRequired(false);
 
                 paypalModal.addComponents(
