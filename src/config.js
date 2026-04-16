@@ -1,5 +1,13 @@
+function requireEnv(name) {
+    const value = process.env[name];
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${name}`);
+    }
+    return value;
+}
+
 module.exports = {
-    GUILD_ID: process.env.GUILD_ID,
-    TARGET_CHANNEL: process.env.TARGET_CHANNEL,
-    PAYPAL_EMAIL: process.env.PAYPAL_EMAIL
+    GUILD_ID: requireEnv("GUILD_ID"),
+    TARGET_CHANNEL: requireEnv("TARGET_CHANNEL"),
+    PAYPAL_EMAIL: requireEnv("PAYPAL_EMAIL")
 };

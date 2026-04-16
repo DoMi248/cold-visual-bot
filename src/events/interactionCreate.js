@@ -54,7 +54,7 @@ module.exports = {
                     .setCustomId("paypal_info")
                     .setLabel("Unsere PayPal E-Mail")
                     .setStyle(TextInputStyle.Short)
-                    .setValue(PAYPAL_EMAIL || "PAYPAL_EMAIL_NICHT_GESETZT")
+                    .setValue(PAYPAL_EMAIL)
                     .setRequired(false);
 
                 paypalModal.addComponents(
