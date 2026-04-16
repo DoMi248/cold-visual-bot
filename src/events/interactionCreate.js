@@ -10,6 +10,7 @@ const {
     EmbedBuilder
 } = require("discord.js");
 const ticketEmbed = require("../components/embeds/ticketEmbed");
+const { PAYPAL_URL } = require("../config");
 
 const TICKET_OWNER_TOPIC_PREFIX = "ticket-owner:";
 const MAX_TICKET_NAME_LENGTH = 80;
@@ -87,9 +88,9 @@ module.exports = {
             if (interaction.isStringSelectMenu() && interaction.customId === "pack_select") {
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setCustomId("choose_paypal")
                         .setLabel("PayPal")
-                        .setStyle(ButtonStyle.Primary),
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(PAYPAL_URL),
                     new ButtonBuilder()
                         .setCustomId("choose_psc")
                         .setLabel("Paysafecard")
@@ -104,22 +105,6 @@ module.exports = {
             }
 
             if (interaction.isButton()) {
-                if (interaction.customId === "choose_paypal") {
-                    const paypalModal = new ModalBuilder()
-                        .setCustomId("paypal_modal")
-                        .setTitle("PayPal Zahlung");
-
-                    const info = new TextInputBuilder()
-                        .setCustomId("paypal_info")
-                        .setLabel("PayPal E-Mail für den Nachweis")
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder("deine-paypal@mail.com")
-                        .setRequired(true);
-
-                    paypalModal.addComponents(new ActionRowBuilder().addComponents(info));
-                    return interaction.showModal(paypalModal);
-                }
-
                 if (interaction.customId === "choose_psc") {
                     const pscModal = new ModalBuilder()
                         .setCustomId("psc_modal")
@@ -237,7 +222,7 @@ module.exports = {
                     });
                 }
 
-                if (interaction.customId === "paypal_modal" || interaction.customId === "psc_modal") {
+                if (interaction.customId === "psc_modal") {
                     const guild = interaction.guild;
                     await guild.channels.fetch();
                     const existingTicket = guild.channels.cache.find(
@@ -255,11 +240,8 @@ module.exports = {
                     }
 
                     const normalizedUser = sanitizeTicketNameSegment(interaction.user.username);
-                    const paymentMethod = interaction.customId === "psc_modal" ? "paysafe" : "paypal";
-                    const paymentInfo =
-                        paymentMethod === "paysafe"
-                            ? interaction.fields.getTextInputValue("psc_code")
-                            : interaction.fields.getTextInputValue("paypal_info");
+                    const paymentMethod = "paysafe";
+                    const paymentInfo = interaction.fields.getTextInputValue("psc_code");
 
                     const ticketChannel = await guild.channels.create({
                         name: `ticket-${normalizedUser}`,
