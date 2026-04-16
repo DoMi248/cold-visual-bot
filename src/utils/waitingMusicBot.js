@@ -231,7 +231,7 @@ const listTracks = async (message) => {
     const session = sessions.get(message.guild.id);
     const selectedIndex = session?.selectedTrackIndex ?? 0;
 
-    const lines = tracks.map((track, index) => `${index === selectedIndex ? "👉" : "•"} ${index + 1}. ${track.label}`);
+    const lines = tracks.map((track, index) => `${index === selectedIndex ? "[AKTUELL]" : "•"} ${index + 1}. ${track.label}`);
     await message.reply(["Verfügbare Tracks:", ...lines].join("\n"));
 };
 
@@ -271,7 +271,7 @@ const switchRelativeTrack = async (message, step) => {
     }
 
     const currentIndex = currentSession.selectedTrackIndex || 0;
-    const nextIndex = (currentIndex + step + tracks.length) % tracks.length;
+    const nextIndex = ((currentIndex + step) % tracks.length + tracks.length) % tracks.length;
     const track = playTrack(currentSession, tracks, nextIndex);
     await message.reply(`Jetzt läuft **${track.label}**.`);
 };
