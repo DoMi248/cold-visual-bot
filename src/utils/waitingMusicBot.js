@@ -187,7 +187,7 @@ const findTrackIndex = (tracks, query) => {
     if (!token) return -1;
 
     const numeric = Number.parseInt(token, 10);
-    if (Number.isInteger(numeric) && String(numeric) === token) {
+    if (!Number.isNaN(numeric) && Number.isInteger(numeric) && String(numeric) === token) {
         const index = numeric - 1;
         if (index >= 0 && index < tracks.length) return index;
     }
@@ -214,7 +214,7 @@ const joinMusic = async (message, args) => {
     const tracks = ensureTracks();
     const targetVoiceChannel = await resolveTargetVoiceChannel(message, args);
     const session = await ensureSession(message.guild, targetVoiceChannel);
-    const track = playTrack(session, tracks, session.selectedTrackIndex || 0);
+    const track = playTrack(session, tracks, session.selectedTrackIndex ?? 0);
 
     await message.reply(`Wartezimmer-Musik gestartet in ${targetVoiceChannel} mit **${track.label}**.`);
 };
@@ -272,7 +272,7 @@ const switchRelativeTrack = async (message, step) => {
         return;
     }
 
-    const currentIndex = currentSession.selectedTrackIndex || 0;
+    const currentIndex = currentSession.selectedTrackIndex ?? 0;
     const nextIndex = wrapIndex(currentIndex + step, tracks.length);
     const track = playTrack(currentSession, tracks, nextIndex);
     await message.reply(`Jetzt läuft **${track.label}**.`);
@@ -286,7 +286,7 @@ const musicStatus = async (message) => {
         return;
     }
 
-    const currentTrack = tracks[session.selectedTrackIndex];
+    const currentTrack = tracks[session.selectedTrackIndex ?? 0];
     await message.reply([
         "Wartezimmer-Musik aktiv:",
         `• Voice-Channel: <#${session.voiceChannelId}>`,
