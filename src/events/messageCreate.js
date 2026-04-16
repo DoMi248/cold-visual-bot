@@ -1,6 +1,7 @@
 const { PermissionFlagsBits } = require("discord.js");
 const { CHANNEL_IDS, COMMAND_PREFIX } = require("../config");
 const sendPricelistMessage = require("../utils/sendPricelistMessage");
+const { addMessageXp } = require("../utils/levelStore");
 const {
     getProducts,
     upsertProduct,
@@ -20,7 +21,7 @@ const PRODUCT_COMMANDS = new Set(["product", "products", "pack", "packs"]);
 const PAYSAFE_COMMAND = "psc";
 const WAITING_MUSIC_COMMANDS = new Set(["wartemusik", "music", "waitmusic"]);
 
-const isManager = (message) => message.member.permissions.has(PermissionFlagsBits.ManageGuild);
+const isManager = (message) => Boolean(message.member?.permissions?.has(PermissionFlagsBits.ManageGuild));
 
 const requireManager = async (message) => {
     if (isManager(message)) return true;
@@ -45,10 +46,59 @@ const sendPaysafeHelp = (message) =>
         `\`${COMMAND_PREFIX}psc show [ticketChannelId]\``
     ].join("\n"));
 
+const getVisibleCommands = (message) => {
+    if (!isManager(message)) return [];
+    return [
+        { command: `${COMMAND_PREFIX}pricelist`, description: "Pricelist senden" },
+        { command: `${COMMAND_PREFIX}product help`, description: "Produktverwaltung anzeigen" },
+        { command: `${COMMAND_PREFIX}psc help`, description: "Paysafecard-Verwaltung anzeigen" },
+        { command: `${COMMAND_PREFIX}wartemusik help`, description: "Wartemusik-Befehle anzeigen" }
+    ];
+};
+
+const sendCommandSuggestions = async (message) => {
+    const visibleCommands = getVisibleCommands(message);
+    if (!visibleCommands.length) {
+        await message.reply("Für deine aktuelle Rolle sind keine Chat-Befehle verfügbar.");
+        return;
+    }
+
+    const lines = visibleCommands.map(({ command, description }) => `• \`${command}\` — ${description}`);
+    await message.reply([
+        "Verfügbare Befehle für deine Rolle:",
+        ...lines
+    ].join("\n"));
+};
+
 module.exports = {
     name: "messageCreate",
     async execute(message) {
         if (!message.guild || message.author.bot) return;
+
+        try {
+            const levelData = addMessageXp({
+                guildId: message.guild.id,
+                userId: message.author.id
+            });
+            if (levelData?.leveledUp) {
+                const levelUpChannelId = String(CHANNEL_IDS.LEVEL_UP || "").trim();
+                if (levelUpChannelId) {
+                    const levelUpChannel = message.guild.channels.cache.get(levelUpChannelId)
+                        || await message.guild.channels.fetch(levelUpChannelId).catch(() => null);
+                    if (levelUpChannel?.isTextBased()) {
+                        await levelUpChannel.send(`🎉 ${message.author} ist jetzt Level **${levelData.level}**!`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Fehler im Level-System:", error);
+        }
+
+        if (message.content.trim() === COMMAND_PREFIX) {
+            await sendCommandSuggestions(message);
+            return;
+        }
+
         if (!message.content.startsWith(COMMAND_PREFIX)) return;
 
         const tokens = message.content
